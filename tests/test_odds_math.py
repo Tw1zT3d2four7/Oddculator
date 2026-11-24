@@ -24,7 +24,7 @@ class OddsParsingTests(unittest.TestCase):
 
 class ProbabilityTests(unittest.TestCase):
     def test_no_vig_probability(self):
-        self.assertAlmostEqual(fair_prob("-110", "+110"), 0.5)
+        self.assertAlmostEqual(fair_prob("-110", "-110"), 0.5)
 
     def test_one_sided_implied_probability(self):
         self.assertAlmostEqual(fair_prob("+150"), 0.4)
