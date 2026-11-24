@@ -4,6 +4,7 @@ Slash commands: /payout /parlay /novig /ev /hedge /minus1 /build1line /convert
 Odds are auto-detected everywhere: -110, +150, or decimal like 1.91.
 """
 import logging
+import math
 import os
 import re
 
@@ -28,10 +29,15 @@ def parse_odds(s) -> float:
     t = str(s).strip().replace("\u2212", "-")
     try:
         n = float(t)
-    except ValueError:
+    except (TypeError, ValueError):
         raise ValueError(f"`{s}` isn't valid odds. Use -110, +150, or 1.91.")
+    if not math.isfinite(n):
+        raise ValueError("Odds must be a finite number.")
     if abs(n) >= 100:
-        return 1 + n / 100 if n > 0 else 1 + 100 / -n
+        decimal = 1 + n / 100 if n > 0 else 1 + 100 / -n
+        if not math.isfinite(decimal) or decimal <= 1:
+            raise ValueError("Odds must convert to decimal odds greater than 1.")
+        return decimal
     if n > 1:
         return n
     raise ValueError(f"`{s}` isn't valid odds. American odds need a magnitude of 100+, decimal odds must be above 1.")
@@ -52,23 +58,23 @@ def pct(x: float, nd: int = 2) -> str:
 def fair_prob(odds, opp=None) -> float:
     """Implied probability, de-vigged against the opposite side when given."""
     p = 1 / parse_odds(odds)
-    if opp:
+    if opp is not None:
         q = 1 / parse_odds(opp)
         p = p / (p + q)
     return p
 
 
 def positive(x: float, name: str) -> float:
-    if x <= 0:
-        raise ValueError(f"{name} must be above 0.")
+    if not math.isfinite(x) or x <= 0:
+        raise ValueError(f"{name} must be a finite number above 0.")
     return x
 
 
 def build_minus1(ml, rl15, opp_ml=None, opp_rl15=None) -> dict:
     """Build a -1 line (win by 2+ wins, win by exactly 1 pushes) from the ML and -1.5 prices."""
     p_ml, p_rl = fair_prob(ml, opp_ml), fair_prob(rl15, opp_rl15)
-    if p_rl >= p_ml:
-        raise ValueError("The -1.5 price must pay more than the moneyline (win by 2+ is less likely than winning). Check your inputs.")
+    if not (0 < p_rl < p_ml < 1):
+        raise ValueError("Inputs must produce valid probabilities: the -1.5 win probability must be above 0 and below the moneyline win probability.")
     w, push, l = p_rl, p_ml - p_rl, 1 - p_ml
     return {"p_ml": p_ml, "w": w, "push": push, "l": l,
             "fair_dec": 1 + l / w, "breakeven": w / (w + l)}
@@ -112,7 +118,17 @@ async def respond(inter: discord.Interaction, build):
         embed = build()
         await inter.response.send_message(embed=embed, file=discord.File(ICON_PATH, filename="icon.png"), ephemeral=True)
     except ValueError as e:
-        await inter.response.send_message(f"\u274c {e}", ephemeral=True)
+        await inter.response.send_message(f"\\u274c {e}", ephemeral=True)
+    except Exception:
+        log.exception("Unexpected command failure")
+        message = "Something went wrong while calculating that result. Check your inputs and try again."
+        try:
+            if inter.response.is_done():
+                await inter.followup.send(message, ephemeral=True)
+            else:
+                await inter.response.send_message(message, ephemeral=True)
+        except Exception:
+            log.exception("Unable to send command error response")
 
 
 @tree.command(name="payout", description="Profit, total return and break-even probability for a bet")
@@ -182,7 +198,10 @@ async def ev(inter: discord.Interaction, odds: str, win_prob: float, bankroll: f
         d = parse_odds(odds)
         if not 0 < win_prob < 100:
             raise ValueError("Win probability must be between 0 and 100.")
-        positive(kelly_fraction, "Kelly fraction")
+        if not math.isfinite(win_prob) or not 0 < win_prob < 100:
+            raise ValueError("Win probability must be a finite percentage between 0 and 100.")
+        if not math.isfinite(kelly_fraction) or not 0 < kelly_fraction <= 1:
+            raise ValueError("Kelly fraction must be greater than 0 and no more than 1. Use 0.25 for quarter Kelly.")
         p, b = win_prob / 100, d - 1
         e = p * b - (1 - p)
         k = max(0.0, (b * p - (1 - p)) / b)
