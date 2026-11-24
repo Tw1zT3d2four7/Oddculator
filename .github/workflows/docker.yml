@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install test dependencies
+        run: python3 -m pip install -r requirements.txt
+
       - name: Run calculation tests
         run: python3 -m unittest discover -s tests -v
 
