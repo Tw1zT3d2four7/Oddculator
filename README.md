@@ -9,7 +9,7 @@ Discord slash-command betting calculator. Results are only visible to the member
 | `/payout stake odds` | Profit, total return, break-even probability |
 | `/parlay stake legs` | Combined odds and payout (legs separated by commas or spaces) |
 | `/novig odds_a odds_b` | Vig and fair probabilities/odds |
-| `/ev odds win_prob [bankroll] [kelly_fraction]` | EV, edge, Kelly stake |
+| `/ev odds win_prob [bankroll] [kelly_fraction]` | EV, edge, fractional Kelly stake (0 < fraction ≤ 1) |
 | `/hedge stake odds hedge_odds` | Equal-profit hedge stake |
 | `/build1line ml rl15 [opp_ml] [opp_rl15]` | Fair -1 run/puck line from the ML and -1.5 price |
 | `/minus1 ml rl15 alt1 [opp_ml] [opp_rl15]` | EV of an offered -1 price vs. the fair line |
@@ -21,10 +21,8 @@ Odds are auto-detected: `-110`, `+150`, or `1.91`.
 
 ```bash
 cp .env.example .env   # set DISCORD_TOKEN, optionally GUILD_ID
-docker compose pull && docker compose up -d
+docker compose pull oddculator && docker compose up -d --no-build
 ```
-
-To build locally instead: `docker compose up -d --build`.
 
 ## Image
 

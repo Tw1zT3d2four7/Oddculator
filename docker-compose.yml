@@ -1,7 +1,6 @@
 services:
   oddculator:
     image: ghcr.io/tw1zt3d2four7/oddculator:latest
-    build: .
     container_name: oddculator
     env_file: .env
     restart: unless-stopped
